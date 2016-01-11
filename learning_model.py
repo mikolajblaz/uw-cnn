@@ -34,8 +34,8 @@ class ConvolutionalNeuralNetwork:
         layer0 = LeNetConvPoolLayer(
             rng,
             input=input,
-            image_shape=(batch_size, 3, input_shape[0], input_shape[1]),
-            filter_shape=(nkerns[0], 3, filter_shape[0], filter_shape[1]),
+            image_shape=(batch_size, 1, input_shape[0], input_shape[1]),
+            filter_shape=(nkerns[0], 1, filter_shape[0], filter_shape[1]),
             poolsize=poolsize,
             conv_stride=conv_stride,
             activation=relu
@@ -117,7 +117,9 @@ class LearningModel:
         x = T.tensor4('x')  # input
         y = T.ivector('y')  # labels
 
-        classifier = ConvolutionalNeuralNetwork(rng, input=x, nkerns=nkerns,
+        input = x.reshape((batch_size, 1, 28, 28))
+
+        classifier = ConvolutionalNeuralNetwork(rng, input=input, nkerns=nkerns,
                                                 batch_size=batch_size, input_shape=input_shape)
 
         cost = (classifier.negative_log_likelihood(y) +
