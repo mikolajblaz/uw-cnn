@@ -4,10 +4,11 @@ import theano
 import theano.tensor as T
 
 from cnn_layers import LeNetConvPoolLayer, LogisticRegression, HiddenLayer, relu
+from augmentation import Augmentation
 
 
 class ConvolutionalNeuralNetwork:
-    def __init__(self, rng, input, nkerns, batch_size, input_shape):
+    def __init__(self, rng, input, nkerns, batch_size, input_shape, augmentation):
         input_shape = list(input_shape)
         filter_shape = [5, 5]
         poolsize = [2, 2]
@@ -30,10 +31,12 @@ class ConvolutionalNeuralNetwork:
 
         set_layer_parameters((3, 3))
 
+        augmented_input = augmentation.augment_batch(input)
+
         # First convolutional pooling layer
         layer0 = LeNetConvPoolLayer(
             rng,
-            input=input,
+            input=augmented_input,
             image_shape=(batch_size, 1, input_shape[0], input_shape[1]),
             filter_shape=(nkerns[0], 1, filter_shape[0], filter_shape[1]),
             poolsize=poolsize,
@@ -119,8 +122,9 @@ class LearningModel:
 
         input = x.reshape((batch_size, 1, 28, 28))
 
+        augm = Augmentation(rng)
         classifier = ConvolutionalNeuralNetwork(rng, input=input, nkerns=nkerns,
-                                                batch_size=batch_size, input_shape=input_shape)
+                                                batch_size=batch_size, input_shape=input_shape, augmentation=augm)
 
         cost = (classifier.negative_log_likelihood(y) +
                 L1_reg * classifier.L1 +
