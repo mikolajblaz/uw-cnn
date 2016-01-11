@@ -114,7 +114,7 @@ class LearningModel:
 
         # symbolic variables
         index = T.lscalar()  # index to a [mini]batch
-        x = T.tensor4('x')  # input
+        x = T.matrix('x')  # input
         y = T.ivector('y')  # labels
 
         input = x.reshape((batch_size, 1, 28, 28))
