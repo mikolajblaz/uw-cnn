@@ -164,6 +164,15 @@ class LearningModel:
             }
         )
 
+        self.train_model_errors = theano.function(
+            [index],
+            classifier.errors(y),
+            givens={
+                x: train_set_x[index * batch_size: (index + 1) * batch_size],
+                y: train_set_y[index * batch_size: (index + 1) * batch_size]
+            }
+        )
+
         # outputs
         self.predict_model = theano.function(
             [index],
@@ -208,10 +217,19 @@ class LearningModel:
                 iter = (epoch - 1) * n_train_batches + minibatch_index
 
                 cost_ij = self.train_model(minibatch_index)
+
                 if verbose:
                     print 'training @ iter = ', iter, 'cost = ', cost_ij
 
                 if (iter + 1) % validation_frequency == 0:
+
+                    train_losses = [self.train_model_errors(i) for i
+                                         in xrange(n_train_batches)]
+                    this_train_loss = numpy.mean(train_losses)
+                    if verbose:
+                        print('epoch %i, minibatch %i/%i, train error %f %%' %
+                              (epoch, minibatch_index + 1, n_train_batches,
+                               this_train_loss * 100.))
 
                     # compute zero-one loss on validation set
                     validation_losses = [self.validate_model(i) for i
