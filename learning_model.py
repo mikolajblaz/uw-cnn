@@ -3,12 +3,21 @@ import numpy
 import theano
 import theano.tensor as T
 
-from cnn_layers import LeNetConvPoolLayer, LogisticRegression, HiddenLayer, relu
+from cnn_layers import Conv, Pool, FC, Softmax, relu
 from augmentation import Augmentation
 
 
 class ConvolutionalNeuralNetwork:
-    def __init__(self, rng, input, nkerns, batch_size, input_shape, augmentation):
+    """
+    Network architecture:
+    Conv -> Relu -> Pool -> FC -> Softmax
+    """
+    def __init__(self, rng, input, n_units, batch_size, input_shape, augmentation):
+        """
+        :type n_units: list
+        :param n_units: for Conv layers it means depth, for FC and softmax - number of hidden units
+        :param augmentation: an object allowing random data augmentation
+        """
         input_shape = list(input_shape)
         filter_shape = [5, 5]
         poolsize = [2, 2]
@@ -25,78 +34,73 @@ class ConvolutionalNeuralNetwork:
                 conv_stride[0] = st[0]
                 conv_stride[1] = st[1]
 
-        def recalculate_input_shape():
-            input_shape[0] = ((input_shape[0] - filter_shape[0]) / conv_stride[0] + 1) / poolsize[0]
-            input_shape[1] = ((input_shape[1] - filter_shape[1]) / conv_stride[1] + 1) / poolsize[1]
+        def recalculate_after_conv():
+            input_shape[0] = (input_shape[0] - filter_shape[0]) / conv_stride[0] + 1
+            input_shape[1] = (input_shape[1] - filter_shape[1]) / conv_stride[1] + 1
 
-        set_layer_parameters((3, 3))
+        def recalculate_after_pool():
+            input_shape[0] /= poolsize[0]
+            input_shape[1] /= poolsize[1]
 
         augmented_input = augmentation.augment_batch(input)
 
-        # First convolutional pooling layer
-        layer0 = LeNetConvPoolLayer(
+        # Conv
+        set_layer_parameters((3, 3))
+        layer0 = Conv(
             rng,
             input=augmented_input,
             image_shape=(batch_size, 1, input_shape[0], input_shape[1]),
-            filter_shape=(nkerns[0], 1, filter_shape[0], filter_shape[1]),
-            poolsize=poolsize,
+            filter_shape=(n_units[0], 1, filter_shape[0], filter_shape[1]),
             conv_stride=conv_stride,
             activation=relu
         )
+        recalculate_after_conv()
 
-        recalculate_input_shape()
+        # Pool
         set_layer_parameters((3, 3), st=(1, 1))
-
-        # Second convolutional pooling layer
-        layer1 = LeNetConvPoolLayer(
-            rng,
+        pool_player = Pool(
             input=layer0.output,
-            image_shape=(batch_size, nkerns[0], input_shape[0], input_shape[1]),
-            filter_shape=(nkerns[1], nkerns[0], filter_shape[0], filter_shape[1]),
-            poolsize=poolsize,
-            conv_stride=conv_stride,
-            activation=relu
+            poolsize=poolsize
         )
-
-        recalculate_input_shape()
+        recalculate_after_pool()
 
         # Prepare input for a fully connected layer
-        layer2_input = layer1.output.flatten(2)
+        layer1_input = pool_player.output.flatten(2)
 
-        # Fully connected layer
-        layer2 = HiddenLayer(
+        # FC
+        layer1 = FC(
             rng,
-            input=layer2_input,
-            n_in=nkerns[1] * input_shape[0] * input_shape[1],
-            n_out=nkerns[2],
+            input=layer1_input,
+            n_in=n_units[0] * input_shape[0] * input_shape[1],
+            n_out=n_units[1],
             activation=relu
         )
 
         # classification
-        layer3 = LogisticRegression(input=layer2.output, n_in=nkerns[2], n_out=nkerns[3])
+        layer2 = Softmax(rng=rng, input=layer1.output, n_in=n_units[1], n_out=n_units[2])
 
-        output_layer = layer3
+        output_layer = layer2
 
         # INTERFACE
-        self.params = layer3.params + layer2.params + layer1.params + layer0.params
-        self.negative_log_likelihood = output_layer.negative_log_likelihood
+        self.params = layer2.params + layer1.params + layer0.params
+        self.negative_log_likelihood = output_layer.nll
         self.errors = output_layer.errors
         self.input = input
 
         # TODO: maybe delegate L1/L2 counting to layers?
         # L1 regularization
-        self.L1 = (abs(layer0.W).sum() + abs(layer1.W).sum() + abs(layer2.W).sum() + abs(layer3.W).sum())
+        self.L1 = (abs(layer0.W).sum() + abs(layer1.W).sum() + abs(layer2.W).sum())
 
         # L2 regularization
-        self.L2 = ((layer0.W ** 2).sum() + (layer1.W ** 2).sum() + (layer2.W ** 2).sum() + (layer3.W ** 2).sum())
+        self.L2 = ((layer0.W ** 2).sum() + (layer1.W ** 2).sum() + (layer2.W ** 2).sum())
 
         # outputs
         self.predict = output_layer.y_pred
-        self.output = output_layer.p_y_given_x
+        self.output = output_layer.y
 
 
 class LearningModel:
-    def __init__(self, rng, datasets, nkerns=(20, 50, 50, 10), batch_size=10, input_shape=(28, 28),
+    def __init__(self, rng, datasets, nkerns=(20, 50, 10), batch_size=10, input_shape=(28, 28),
                  learning_rate=0.01, L1_reg=0.1, L2_reg=0.1):
         train_set_x, train_set_y = datasets[0]
         valid_set_x, valid_set_y = datasets[1]
@@ -123,7 +127,7 @@ class LearningModel:
         input = x.reshape((batch_size, 1, 28, 28))
 
         augm = Augmentation(rng)
-        classifier = ConvolutionalNeuralNetwork(rng, input=input, nkerns=nkerns,
+        classifier = ConvolutionalNeuralNetwork(rng, input=input, n_units=nkerns,
                                                 batch_size=batch_size, input_shape=input_shape, augmentation=augm)
 
         cost = (classifier.negative_log_likelihood(y) +
