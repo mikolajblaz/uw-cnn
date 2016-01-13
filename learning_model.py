@@ -12,7 +12,7 @@ class ConvolutionalNeuralNetwork:
     Network architecture:
     Conv -> Relu -> Pool -> FC -> Softmax
     """
-    def __init__(self, rng, input, n_units, batch_size, input_shape, augmentation):
+    def __init__(self, rng, input, n_units, batch_size, input_shape):
         """
         :type n_units: list
         :param n_units: for Conv layers it means depth, for FC and softmax - number of hidden units
@@ -42,13 +42,11 @@ class ConvolutionalNeuralNetwork:
             input_shape[0] /= poolsize[0]
             input_shape[1] /= poolsize[1]
 
-        augmented_input = augmentation.augment_batch(input)
-
         # Conv
         set_layer_parameters((3, 3))
         layer0 = Conv(
             rng,
-            input=augmented_input,
+            input=input,
             image_shape=(batch_size, 1, input_shape[0], input_shape[1]),
             filter_shape=(n_units[0], 1, filter_shape[0], filter_shape[1]),
             conv_stride=conv_stride,
@@ -124,11 +122,14 @@ class LearningModel:
         x = T.matrix('x')  # input
         y = T.ivector('y')  # labels
 
-        input = x.reshape((batch_size, 1, 28, 28))
-
         augm = Augmentation(rng)
-        classifier = ConvolutionalNeuralNetwork(rng, input=input, n_units=nkerns,
-                                                batch_size=batch_size, input_shape=input_shape, augmentation=augm)
+
+        input = x.reshape((batch_size, 1, 28, 28))
+        augmented_input = augm.augment_batch(input, (28, 28), (26, 26), batch_size)
+        input_shape = (26, 26)
+
+        classifier = ConvolutionalNeuralNetwork(rng, input=augmented_input, n_units=nkerns,
+                                                batch_size=batch_size, input_shape=input_shape)
 
         cost = (classifier.negative_log_likelihood(y) +
                 L1_reg * classifier.L1 +
@@ -158,11 +159,15 @@ class LearningModel:
         updates = [(param_i, param_i - learning_rate * grad_i)
                    for param_i, grad_i in zip(params, grads)]
 
+        new_input_shape = (26, 26)
+
         self.train_model = theano.function(
             [index],
             cost,
             updates=updates,
             givens={
+                # x: augm.augment_batch(train_set_x[index * batch_size: (index + 1) * batch_size],
+                #                       input_shape, new_input_shape, batch_size),
                 x: train_set_x[index * batch_size: (index + 1) * batch_size],
                 y: train_set_y[index * batch_size: (index + 1) * batch_size]
             }
