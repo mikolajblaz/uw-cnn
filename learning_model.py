@@ -262,5 +262,4 @@ class LearningModel:
         return best_validation_loss, best_iter, test_score
 
     def predict(self):
-        for i in range(self.n_train_batches):
-            print self.predict_model(i)
+        return [self.predict_model(i) for i in range(self.n_train_batches)]
