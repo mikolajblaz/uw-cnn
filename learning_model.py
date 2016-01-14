@@ -15,7 +15,6 @@ class ConvolutionalNeuralNetwork:
         """
         :type n_units: list
         :param n_units: for Conv layers it means depth, for FC and softmax - number of hidden units
-        :param augmentation: an object allowing random data augmentation
         """
         input_shape = list(input_shape)
         filter_shape = [5, 5]
@@ -125,7 +124,10 @@ class LearningModel:
         params_values = [print_op(param) for param in params]
         self.display_params = theano.function([], params_values)
 
-    def train(self, rng, datasets, batch_size, n_epochs, image_processing, verbose=False):
+    def train(self, datasets, batch_size, n_epochs, image_processing, verbose=False):
+        """
+        :param image_processing: an object allowing random data augmentation and processing
+        """
         # TODO: save intermediate results to a file
         proc = image_processing
 
@@ -145,7 +147,6 @@ class LearningModel:
 
         best_validation_loss = numpy.inf
         best_epoch = 0
-        test_score = 0.
 
         epoch = 0
         iter = 0
@@ -169,18 +170,11 @@ class LearningModel:
                 valid_loss = self.errors(valid_set_x, valid_set_y)
                 print 'validation error %f %%' % (valid_loss * 100.)
 
-                # if we got the best validation score until now
                 if valid_loss < best_validation_loss:
-
-                    # save best validation score and iteration number
                     best_validation_loss = valid_loss
                     best_epoch = epoch
-
-                    # test it on the test set
                     test_loss = self.errors(test_set_x, test_set_y)
-                    print 'test error %f %%' % (test_loss * 100.)
-
-        return best_validation_loss, best_epoch, test_score
+                    print '    best model with test error %f %%' % (test_loss * 100.)
 
     # def predict(self):
     #     return [self.predict_model(i) for i in range(n_train_batches)]

@@ -8,7 +8,7 @@ import theano.tensor as T
 
 
 def load_mnist():
-    """
+    """ Load MNIST dataset if not present already.
     :type return: list of 3 pairs
     :return: Train, validation and test set, each one is a pair of images and labels
     """
@@ -27,7 +27,9 @@ def load_mnist():
     dataset = cPickle.load(f)
     f.close()
 
-    return [(set[0].reshape((set[0].shape[0], 1, 28, 28)), set[1].astype('int32')) for set in dataset]
+    return [(set[0].reshape((set[0].shape[0], 1, 28, 28)),
+             set[1].astype('int32'))
+            for set in dataset]
 
 
 def lighten(image, rng):
