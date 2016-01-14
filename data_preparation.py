@@ -8,6 +8,10 @@ import theano.tensor as T
 
 
 def load_mnist():
+    """
+    :type return: list of 3 pairs
+    :return: Train, validation and test set, each one is a pair of images and labels
+    """
     filename = 'mnist.pkl.gz'
     # Download the MNIST dataset if it is not present
     if not os.path.isfile(filename):
@@ -23,7 +27,7 @@ def load_mnist():
     dataset = cPickle.load(f)
     f.close()
 
-    return [(set[0], set[1].astype('int32')) for set in dataset]
+    return [(set[0].reshape((set[0].shape[0], 1, 28, 28)), set[1].astype('int32')) for set in dataset]
 
 
 def lighten(image, rng):
@@ -34,12 +38,6 @@ def lighten(image, rng):
 def rotate(image, rng):
     print "Rotate"
     return image
-
-
-def crop_image(image, rng, image_shape, new_image_shape):
-    left = rng.randint(0, image_shape[0] - new_image_shape[0])
-    top = rng.randint(0, image_shape[1] - new_image_shape[1])
-    return image[:, top: top + new_image_shape[1], left: left + new_image_shape[0]]
 
 
 functions = [lighten, rotate]
@@ -59,17 +57,34 @@ class ImageProcessing:
         fun = self.fun_list[rand_fun_idx]
         return fun(image, rng)
 
-    def augment_batch(self, images):
-        batch_size = images.shape[0]
+    def augment_batch(self, images, random=True):
+        if random:
+            batch_size = images.shape[0]
+            new_images = np.zeros((batch_size, 1, 26, 26), dtype=theano.config.floatX)
+            for i in range(batch_size):
+                new_images[i, ...] = self.crop_image_random(images[i, ...], random)
 
-        new_images = np.zeros(
-            (batch_size, 1, 26, 26),
-            dtype=theano.config.floatX
-        )
+            return new_images
 
-        images = images.reshape((batch_size, 1, 28, 28))
+        else:
+            return self.crop_batch(images)
 
-        for i in range(batch_size):
-            new_images[i, :, :, :] = crop_image(images[i, :, :, :], self.rng, self.image_shape, self.cropped_image_shape)
+    def crop_image_random(self, image, random):
+        shape = self.image_shape
+        new_shape = self.cropped_image_shape
+        if random:
+            left = self.rng.randint(0, shape[0] - new_shape[0])
+            top = self.rng.randint(0, shape[1] - new_shape[1])
+        else:
+            left = (shape[0] - new_shape[0]) // 2
+            top = (shape[1] - new_shape[1]) // 2
 
-        return new_images
+        return image[:, top: top + new_shape[1], left: left + new_shape[0]]
+
+    def crop_batch(self, images):
+        shape = self.image_shape
+        new_shape = self.cropped_image_shape
+        left = (shape[0] - new_shape[0]) // 2
+        top = (shape[1] - new_shape[1]) // 2
+
+        return images[:, :, top: top + new_shape[1], left: left + new_shape[0]]

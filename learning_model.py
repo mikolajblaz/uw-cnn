@@ -127,78 +127,60 @@ class LearningModel:
 
     def train(self, rng, datasets, batch_size, n_epochs, image_processing, verbose=False):
         # TODO: save intermediate results to a file
+        proc = image_processing
+
         train_set_x, train_set_y = datasets[0]
         valid_set_x, valid_set_y = datasets[1]
         test_set_x, test_set_y = datasets[2]
 
-        n_train_batches = train_set_x.shape[0]
-        n_valid_batches = valid_set_x.shape[0]
-        n_test_batches = test_set_x.shape[0]
-        n_train_batches /= batch_size
-        n_valid_batches /= batch_size
-        n_test_batches /= batch_size
+        # Crop static sets
+        valid_set_x = proc.augment_batch(valid_set_x, random=False)
+        test_set_x = proc.augment_batch(test_set_x, random=False)
 
-        validation_frequency = n_train_batches
+        n_train = train_set_x.shape[0]
+        n_valid = valid_set_x.shape[0]
+        n_test = test_set_x.shape[0]
+
+        validation_frequency = 1
 
         best_validation_loss = numpy.inf
-        best_iter = 0
+        best_epoch = 0
         test_score = 0.
 
         epoch = 0
-
-        proc = image_processing
+        iter = 0
 
         while epoch < n_epochs:
-            epoch = epoch + 1
-            for minibatch_index in xrange(n_train_batches):
-
-                iter = (epoch - 1) * n_train_batches + minibatch_index
-
-                cost_ij = self.train_model(proc.augment_batch(train_set_x[minibatch_index * batch_size: (minibatch_index + 1) * batch_size]),
-                                           train_set_y[minibatch_index * batch_size: (minibatch_index + 1) * batch_size])
+            epoch += 1
+            for idx_l, idx_p in zip(range(0, n_train, batch_size), range(batch_size, n_train, batch_size)):
+                iter += 1
+                cost_ij = self.train_model(proc.augment_batch(train_set_x[idx_l: idx_p]), train_set_y[idx_l: idx_p])
 
                 if verbose:
                     print 'training @ iter = ', iter, 'cost = ', cost_ij
 
-                if (iter + 1) % validation_frequency == 0:
+            if epoch % validation_frequency == 0:
+                print 'epoch', epoch
 
-                    # train_losses = [self.train_model_errors(i) for i
-                    #                      in xrange(n_train_batches)]
-                    # this_train_loss = numpy.mean(train_losses)
-                    # if verbose:
-                    #     print('epoch %i, minibatch %i/%i, train error %f %%' %
-                    #           (epoch, minibatch_index + 1, n_train_batches,
-                    #            this_train_loss * 100.))
+                train_loss = self.errors(proc.augment_batch(train_set_x, random=False), train_set_y)
+                if verbose:
+                    print 'train error %f %%' % (train_loss * 100.)
 
-                    # compute zero-one loss on validation set
-                    validation_losses = [self.validate_model(self.augm.augment_batch(valid_set_x[i * batch_size: (i + 1) * batch_size]),
-                                                             valid_set_y[i * batch_size: (i + 1) * batch_size])
-                                        for i in xrange(n_valid_batches)]
-                    this_validation_loss = numpy.mean(validation_losses)
-                    if verbose:
-                        print('epoch %i, minibatch %i/%i, validation error %f %%' %
-                              (epoch, minibatch_index + 1, n_train_batches,
-                               this_validation_loss * 100.))
+                valid_loss = self.errors(valid_set_x, valid_set_y)
+                print 'validation error %f %%' % (valid_loss * 100.)
 
-                    # if we got the best validation score until now
-                    if this_validation_loss < best_validation_loss:
+                # if we got the best validation score until now
+                if valid_loss < best_validation_loss:
 
-                        # save best validation score and iteration number
-                        best_validation_loss = this_validation_loss
-                        best_iter = iter
+                    # save best validation score and iteration number
+                    best_validation_loss = valid_loss
+                    best_epoch = epoch
 
-                        # test it on the test set
-                        test_losses = [self.test_model(self.augm.augment_batch(test_set_x[i * batch_size: (i + 1) * batch_size]),
-                                                       test_set_y[i * batch_size: (i + 1) * batch_size])
-                                       for i in xrange(n_test_batches)]
-                        test_score = numpy.mean(test_losses)
-                        if verbose:
-                            print(('     epoch %i, minibatch %i/%i, test error of '
-                                   'best model %f %%') %
-                                  (epoch, minibatch_index + 1, n_train_batches,
-                                   test_score * 100.))
+                    # test it on the test set
+                    test_loss = self.errors(test_set_x, test_set_y)
+                    print 'test error %f %%' % (test_loss * 100.)
 
-        return best_validation_loss, best_iter, test_score
+        return best_validation_loss, best_epoch, test_score
 
     # def predict(self):
     #     return [self.predict_model(i) for i in range(n_train_batches)]
