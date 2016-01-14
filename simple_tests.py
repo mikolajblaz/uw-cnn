@@ -7,7 +7,7 @@ from learning_model import LearningModel
 def basic_nn_input():
     rng = numpy.random.RandomState(123456)
     dataset = dp.load_data('mnist.pkl.gz')
-    model = LearningModel(rng, nkerns=(20, 50, 10), batch_size=500, input_shape=(28, 28),
+    model = LearningModel(rng, nkerns=(20, 50, 10), batch_size=500, input_shape=(28, 28), cropped_input_shape=(26, 26),
                           learning_rate=0.01, L1_reg=0.001, L2_reg=0.001)
 
     print model.train(dataset, 10, verbose=True)

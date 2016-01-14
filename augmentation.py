@@ -24,10 +24,13 @@ functions = [lighten, rotate]
 
 
 class Augmentation:
-    def __init__(self, rng, fun_list=functions):
+    def __init__(self, rng, image_shape, cropped_image_shape, batch_size, fun_list=functions):
         self.fun_list = fun_list
         self.length = len(fun_list)
         self.rng = rng
+        self.image_shape = image_shape
+        self.cropped_image_shape = cropped_image_shape
+        self.batch_size = batch_size
 
     def augment_image(self, image):
         rng = self.rng
@@ -35,15 +38,15 @@ class Augmentation:
         fun = self.fun_list[rand_fun_idx]
         return fun(image, rng)
 
-    def augment_batch(self, images, image_shape, new_image_shape, batch_size):
+    def augment_batch(self, images):
         new_images = np.zeros(
-            (batch_size, 1, 26, 26),
+            (self.batch_size, 1, 26, 26),
             dtype=theano.config.floatX
         )
 
-        images = images.reshape((batch_size, 1, 28, 28))
+        images = images.reshape((self.batch_size, 1, 28, 28))
 
-        for i in range(batch_size):
-            new_images[i, :, :, :] = crop_image(images[i, :, :, :], self.rng, image_shape, new_image_shape)
+        for i in range(self.batch_size):
+            new_images[i, :, :, :] = crop_image(images[i, :, :, :], self.rng, self.image_shape, self.cropped_image_shape)
 
         return new_images

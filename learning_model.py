@@ -98,21 +98,20 @@ class ConvolutionalNeuralNetwork:
 
 
 class LearningModel:
-    def __init__(self, rng, nkerns=(20, 50, 10), batch_size=10, input_shape=(28, 28),
+    def __init__(self, rng, nkerns=(20, 50, 10), batch_size=10, input_shape=(28, 28), cropped_input_shape=(26, 26),
                  learning_rate=0.01, L1_reg=0.1, L2_reg=0.1):
 
         self.batch_size = batch_size
-        self.augm = Augmentation(rng)
+        self.augm = Augmentation(rng, input_shape, cropped_input_shape, batch_size)
 
         # symbolic variables
         x = T.tensor4('x')  # input
         y = T.ivector('y')  # labels
 
         #augmented_input = augm.augment_batch(input, (28, 28), (26, 26), batch_size)
-        input_shape = (26, 26)
 
         classifier = ConvolutionalNeuralNetwork(rng, input=x, n_units=nkerns,
-                                                batch_size=batch_size, input_shape=input_shape)
+                                                batch_size=batch_size, input_shape=cropped_input_shape)
 
         cost = (classifier.negative_log_likelihood(y) +
                 L1_reg * classifier.L1 +
@@ -133,8 +132,6 @@ class LearningModel:
         grads = T.grad(cost, params)
         updates = [(param_i, param_i - learning_rate * grad_i)
                    for param_i, grad_i in zip(params, grads)]
-
-        new_input_shape = (26, 26)
 
         self.train_model = theano.function(
             [x, y],
@@ -204,7 +201,7 @@ class LearningModel:
 
                 iter = (epoch - 1) * n_train_batches + minibatch_index
 
-                cost_ij = self.train_model(augm.augment_batch(train_set_x[minibatch_index * batch_size: (minibatch_index + 1) * batch_size], (28, 28), (26, 26), batch_size),
+                cost_ij = self.train_model(augm.augment_batch(train_set_x[minibatch_index * batch_size: (minibatch_index + 1) * batch_size]),
                                            train_set_y[minibatch_index * batch_size: (minibatch_index + 1) * batch_size])
 
                 if verbose:
@@ -221,7 +218,7 @@ class LearningModel:
                     #            this_train_loss * 100.))
 
                     # compute zero-one loss on validation set
-                    validation_losses = [self.validate_model(self.augm.augment_batch(valid_set_x[i * batch_size: (i + 1) * batch_size], (28, 28), (26, 26), batch_size),
+                    validation_losses = [self.validate_model(self.augm.augment_batch(valid_set_x[i * batch_size: (i + 1) * batch_size]),
                                                              valid_set_y[i * batch_size: (i + 1) * batch_size])
                                         for i in xrange(n_valid_batches)]
                     this_validation_loss = numpy.mean(validation_losses)
@@ -238,7 +235,7 @@ class LearningModel:
                         best_iter = iter
 
                         # test it on the test set
-                        test_losses = [self.test_model(self.augm.augment_batch(test_set_x[i * batch_size: (i + 1) * batch_size], (28, 28), (26, 26), batch_size),
+                        test_losses = [self.test_model(self.augm.augment_batch(test_set_x[i * batch_size: (i + 1) * batch_size]),
                                                        test_set_y[i * batch_size: (i + 1) * batch_size])
                                        for i in xrange(n_test_batches)]
                         test_score = numpy.mean(test_losses)
@@ -250,5 +247,5 @@ class LearningModel:
 
         return best_validation_loss, best_iter, test_score
 
-    def predict(self):
-        return [self.predict_model(i) for i in range(self.n_train_batches)]
+    # def predict(self):
+    #     return [self.predict_model(i) for i in range(n_train_batches)]
