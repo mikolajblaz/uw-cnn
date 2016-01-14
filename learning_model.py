@@ -126,7 +126,7 @@ class LearningModel:
 
         def get_ranges(top):
             """ Return ranges for batch iteration. """
-            return zip(range(0, top, batch_size), range(batch_size, top, batch_size))
+            return zip(range(0, top, batch_size), range(batch_size, top + batch_size, batch_size))
 
         # TODO: save intermediate results to a file
         proc = image_processing
