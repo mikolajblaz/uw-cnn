@@ -54,12 +54,14 @@ def load_data(dataset):
         variable) would lead to a large decrease in performance.
         """
         data_x, data_y = data_xy
-        shared_x = theano.shared(np.asarray(data_x,
-                                               dtype=theano.config.floatX),
-                                 borrow=borrow)
-        shared_y = theano.shared(np.asarray(data_y,
-                                               dtype=theano.config.floatX),
-                                 borrow=borrow)
+        # shared_x = theano.shared(np.asarray(data_x,
+        #                                        dtype=theano.config.floatX),
+        #                          borrow=borrow)
+        # shared_y = theano.shared(np.asarray(data_y,
+        #                                        dtype=theano.config.floatX),
+        #                          borrow=borrow)
+        shared_x = data_x
+        shared_y = data_y
         # When storing data on the GPU it has to be stored as floats
         # therefore we will store the labels as ``floatX`` as well
         # (``shared_y`` does exactly that). But during our computations
@@ -67,7 +69,7 @@ def load_data(dataset):
         # floats it doesn't make sense) therefore instead of returning
         # ``shared_y`` we will have to cast it to int. This little hack
         # lets ous get around this issue
-        return shared_x, T.cast(shared_y, 'int32')
+        return shared_x, shared_y.astype('int32')
 
     test_set_x, test_set_y = shared_dataset(test_set)
     valid_set_x, valid_set_y = shared_dataset(valid_set)

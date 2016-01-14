@@ -14,10 +14,10 @@ def rotate(image, rng):
 
 
 def crop_image(image, rng, image_shape, new_image_shape):
-    # left = rng.randint(0, image_shape[0] - new_image_shape[0])
-    # top = rng.randint(0, image_shape[1] - new_image_shape[1])
-    # return image[:, top: top + new_image_shape[1], left: left + new_image_shape[0]]
-    return image[:676]
+    left = rng.randint(0, image_shape[0] - new_image_shape[0])
+    top = rng.randint(0, image_shape[1] - new_image_shape[1])
+    return image[:, top: top + new_image_shape[1], left: left + new_image_shape[0]]
+    # return image[:]
 
 
 functions = [lighten, rotate]
@@ -36,16 +36,14 @@ class Augmentation:
         return fun(image, rng)
 
     def augment_batch(self, images, image_shape, new_image_shape, batch_size):
-        print type(images)
-        new_images_val = np.zeros(
+        new_images = np.zeros(
             (batch_size, 1, 26, 26),
             dtype=theano.config.floatX
         )
-        new_images = theano.shared(value=new_images_val, name='W', borrow=True)
+
+        images = images.reshape((batch_size, 1, 28, 28))
 
         for i in range(batch_size):
-            #new_images_val[i, :] = crop_image(images[i, :], self.rng, image_shape, new_image_shape)
-            T.set_subtensor(new_images[i, :, :, :], images[i, :, 2:, 2:])
-
+            new_images[i, :, :, :] = crop_image(images[i, :, :, :], self.rng, image_shape, new_image_shape)
 
         return new_images
