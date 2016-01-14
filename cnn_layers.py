@@ -83,7 +83,8 @@ class FC:
 
 
 class Conv:
-    def __init__(self, rng, input, filter_shape, image_shape, conv_stride=(1, 1), activation=T.tanh, W=None, b=None):
+    def __init__(self, rng, input, filter_shape=None, image_shape=None, conv_stride=(1, 1), activation=T.tanh,
+                 W=None, b=None):
         assert image_shape[1] == filter_shape[1]
 
         fan_in = numpy.prod(filter_shape[1:])

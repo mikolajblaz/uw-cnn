@@ -4,7 +4,6 @@ import theano
 import theano.tensor as T
 
 from cnn_layers import Conv, Pool, FC, Softmax, relu
-from augmentation import Augmentation
 
 
 class ConvolutionalNeuralNetwork:
@@ -12,7 +11,7 @@ class ConvolutionalNeuralNetwork:
     Network architecture:
     Conv -> Relu -> Pool -> FC -> Softmax
     """
-    def __init__(self, rng, input, n_units, batch_size, input_shape):
+    def __init__(self, rng, input, n_units, input_shape):
         """
         :type n_units: list
         :param n_units: for Conv layers it means depth, for FC and softmax - number of hidden units
@@ -47,7 +46,7 @@ class ConvolutionalNeuralNetwork:
         layer0 = Conv(
             rng,
             input=input,
-            image_shape=(batch_size, 1, input_shape[0], input_shape[1]),
+            image_shape=(None, 1, input_shape[0], input_shape[1]),
             filter_shape=(n_units[0], 1, filter_shape[0], filter_shape[1]),
             conv_stride=conv_stride,
             activation=relu
@@ -98,82 +97,36 @@ class ConvolutionalNeuralNetwork:
 
 
 class LearningModel:
-    def __init__(self, rng, nkerns=(20, 50, 10), batch_size=10, input_shape=(28, 28), cropped_input_shape=(26, 26),
-                 learning_rate=0.01, L1_reg=0.1, L2_reg=0.1):
-
-        self.batch_size = batch_size
-        self.augm = Augmentation(rng, input_shape, cropped_input_shape, batch_size)
-
+    def __init__(self, rng, nkerns=(20, 50, 10), input_shape=(26, 26), learning_rate=0.01, L1_reg=0.1, L2_reg=0.1):
         # symbolic variables
         x = T.tensor4('x')  # input
         y = T.ivector('y')  # labels
 
-        #augmented_input = augm.augment_batch(input, (28, 28), (26, 26), batch_size)
-
-        classifier = ConvolutionalNeuralNetwork(rng, input=x, n_units=nkerns,
-                                                batch_size=batch_size, input_shape=cropped_input_shape)
+        classifier = ConvolutionalNeuralNetwork(rng, input=x, n_units=nkerns, input_shape=input_shape)
 
         cost = (classifier.negative_log_likelihood(y) +
                 L1_reg * classifier.L1 +
                 L2_reg * classifier.L2)
-
-        # functions computing mistakes
-        self.test_model = theano.function(
-            [x, y],
-            classifier.errors(y)
-        )
-
-        self.validate_model = theano.function(
-            [x, y],
-            classifier.errors(y)
-        )
 
         params = classifier.params
         grads = T.grad(cost, params)
         updates = [(param_i, param_i - learning_rate * grad_i)
                    for param_i, grad_i in zip(params, grads)]
 
-        self.train_model = theano.function(
-            [x, y],
-            cost,
-            updates=updates
-        )
-        #
-        # self.train_model_errors = theano.function(
-        #     [index],
-        #     classifier.errors(y),
-        #     givens={
-        #         x: train_set_x[index * batch_size: (index + 1) * batch_size],
-        #         y: train_set_y[index * batch_size: (index + 1) * batch_size]
-        #     }
-        # )
-        #
-        # # outputs
-        # self.predict_model = theano.function(
-        #     [index],
-        #     classifier.predict,
-        #     givens={
-        #         x: train_set_x[index * batch_size: (index + 1) * batch_size]
-        #     }
-        # )
-        #
-        # self.output_model = theano.function(
-        #     [index],
-        #     classifier.output,
-        #     givens={
-        #         x: train_set_x[index * batch_size: (index + 1) * batch_size]
-        #     }
-        # )
+        self.train_model = theano.function([x, y], cost, updates=updates)
+
+        # outputs
+        self.errors = theano.function([x, y], classifier.errors(y))
+        self.predict = theano.function([x], classifier.predict)
+        self.output = theano.function([x], classifier.output)
 
         # parameters printing function
         print_op = theano.printing.Print('params')
         params_values = [print_op(param) for param in params]
         self.display_params = theano.function([], params_values)
 
-    def train(self, datasets, n_epochs, verbose=False):
+    def train(self, rng, datasets, batch_size, n_epochs, image_processing, verbose=False):
         # TODO: save intermediate results to a file
-        batch_size = self.batch_size
-
         train_set_x, train_set_y = datasets[0]
         valid_set_x, valid_set_y = datasets[1]
         test_set_x, test_set_y = datasets[2]
@@ -193,7 +146,7 @@ class LearningModel:
 
         epoch = 0
 
-        augm = self.augm
+        proc = image_processing
 
         while epoch < n_epochs:
             epoch = epoch + 1
@@ -201,7 +154,7 @@ class LearningModel:
 
                 iter = (epoch - 1) * n_train_batches + minibatch_index
 
-                cost_ij = self.train_model(augm.augment_batch(train_set_x[minibatch_index * batch_size: (minibatch_index + 1) * batch_size]),
+                cost_ij = self.train_model(proc.augment_batch(train_set_x[minibatch_index * batch_size: (minibatch_index + 1) * batch_size]),
                                            train_set_y[minibatch_index * batch_size: (minibatch_index + 1) * batch_size])
 
                 if verbose:
