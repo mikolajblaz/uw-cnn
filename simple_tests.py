@@ -11,7 +11,7 @@ def basic_nn_input():
                           learning_rate=0.01, L1_reg=0.001, L2_reg=0.001)
 
     dataset = dp.load_mnist()
-    model.train(dataset, n_epochs=100, batch_size=500, image_processing=img_proc, verbose=False)
+    model.train(dataset, n_epochs=100, batch_size=500, image_processing=img_proc, verbose=True)
 
 
 if __name__ == '__main__':

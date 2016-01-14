@@ -36,13 +36,15 @@ def load_mnist():
 
 def lighten(image, rng, range=1.1):
     # TODO
+    # print "Lighten"
     scale = rng.random_sample() * (range - 1) + 1
-    return np.clip(image.dot(scale), 0., 1.)
+    # return np.clip(image.dot(scale), 0., 1.)
+    return image
 
 
 def rotate(image, rng):
     # TODO
-    print "Rotate"
+    # print "Rotate"
     return image
 
 

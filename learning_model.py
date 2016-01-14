@@ -123,6 +123,11 @@ class LearningModel:
         """
         :param image_processing: an object allowing random data augmentation and processing
         """
+
+        def get_ranges(top):
+            """ Return ranges for batch iteration. """
+            return zip(range(0, top, batch_size), range(batch_size, top, batch_size))
+
         # TODO: save intermediate results to a file
         proc = image_processing
 
@@ -135,17 +140,20 @@ class LearningModel:
         test_set_x = proc.augment_batch(test_set_x, random=False)
 
         n_train = train_set_x.shape[0]
+        n_valid = valid_set_x.shape[0]
+        n_test = test_set_x.shape[0]
 
         validation_frequency = 1
         best_validation_loss = numpy.inf
         best_epoch = 0
+        test_loss = 0.
 
         epoch = 0
         iter = 0
 
         while epoch < n_epochs:
             epoch += 1
-            for idx_l, idx_p in zip(range(0, n_train, batch_size), range(batch_size, n_train, batch_size)):
+            for idx_l, idx_p in get_ranges(n_train):
                 iter += 1
                 cost = self.train_model(proc.augment_batch(train_set_x[idx_l: idx_p]), train_set_y[idx_l: idx_p])
 
@@ -153,15 +161,24 @@ class LearningModel:
                     print 'training @ iter = ', iter, 'cost = ', cost
 
             if epoch % validation_frequency == 0:
-                train_loss = self.errors(proc.augment_batch(train_set_x, random=False), train_set_y)
+                train_losses = [self.errors(proc.augment_batch(train_set_x[idx_l: idx_p], random=False),
+                                            train_set_y[idx_l: idx_p])
+                                for idx_l, idx_p in get_ranges(n_train)]
+                train_loss = numpy.mean(train_losses)
                 if verbose:
                     print 'epoch %i: train error %f %%' % (epoch, train_loss * 100.)
 
-                valid_loss = self.errors(valid_set_x, valid_set_y)
+                valid_losses = [self.errors(valid_set_x[idx_l: idx_p], valid_set_y[idx_l: idx_p])
+                                for idx_l, idx_p in get_ranges(n_valid)]
+                valid_loss = numpy.mean(valid_losses)
                 print 'epoch %i: validation error %f %%' % (epoch, valid_loss * 100.)
 
                 if valid_loss < best_validation_loss:
                     best_validation_loss = valid_loss
                     best_epoch = epoch
-                    test_loss = self.errors(test_set_x, test_set_y)
+                    test_losses = [self.errors(test_set_x[idx_l: idx_p], test_set_y[idx_l: idx_p])
+                                   for idx_l, idx_p in get_ranges(n_test)]
+                    test_loss = numpy.mean(test_losses)
                     print '    best model with test error %f %%' % (test_loss * 100.)
+
+        return best_validation_loss, test_loss, epoch
