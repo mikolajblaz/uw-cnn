@@ -98,35 +98,15 @@ class ConvolutionalNeuralNetwork:
 
 
 class LearningModel:
-    def __init__(self, rng, datasets, nkerns=(20, 50, 10), batch_size=10, input_shape=(28, 28),
+    def __init__(self, rng, nkerns=(20, 50, 10), batch_size=10, input_shape=(28, 28),
                  learning_rate=0.01, L1_reg=0.1, L2_reg=0.1):
-        self.train_set_x, self.train_set_y = datasets[0]
-        self.valid_set_x, self.valid_set_y = datasets[1]
-        self.test_set_x, self.test_set_y = datasets[2]
-
-        # compute number of minibatches for training, validation and testing
-        # n_train_batches = self.train_set_x.get_value(borrow=True).shape[0]
-        # n_valid_batches = self.valid_set_x.get_value(borrow=True).shape[0]
-        # n_test_batches = self.test_set_x.get_value(borrow=True).shape[0]
-        n_train_batches = self.train_set_x.shape[0]
-        n_valid_batches = self.valid_set_x.shape[0]
-        n_test_batches = self.test_set_x.shape[0]
-        n_train_batches /= batch_size
-        n_valid_batches /= batch_size
-        n_test_batches /= batch_size
 
         self.batch_size = batch_size
-        self.n_train_batches = n_train_batches
-        self.n_valid_batches = n_valid_batches
-        self.n_test_batches = n_test_batches
-
-        # symbolic variables
-        index = T.lscalar()  # index to a [mini]batch
-        x = T.tensor4('x')  # input
-        y = T.ivector('y')  # labels
-
         self.augm = Augmentation(rng)
 
+        # symbolic variables
+        x = T.tensor4('x')  # input
+        y = T.ivector('y')  # labels
 
         #augmented_input = augm.augment_batch(input, (28, 28), (26, 26), batch_size)
         input_shape = (26, 26)
@@ -193,12 +173,20 @@ class LearningModel:
         params_values = [print_op(param) for param in params]
         self.display_params = theano.function([], params_values)
 
-    def train(self, n_epochs, verbose=False):
+    def train(self, datasets, n_epochs, verbose=False):
         # TODO: save intermediate results to a file
         batch_size = self.batch_size
-        n_train_batches = self.n_train_batches
-        n_valid_batches = self.n_valid_batches
-        n_test_batches = self.n_test_batches
+
+        train_set_x, train_set_y = datasets[0]
+        valid_set_x, valid_set_y = datasets[1]
+        test_set_x, test_set_y = datasets[2]
+
+        n_train_batches = train_set_x.shape[0]
+        n_valid_batches = valid_set_x.shape[0]
+        n_test_batches = test_set_x.shape[0]
+        n_train_batches /= batch_size
+        n_valid_batches /= batch_size
+        n_test_batches /= batch_size
 
         validation_frequency = n_train_batches
 
@@ -208,14 +196,16 @@ class LearningModel:
 
         epoch = 0
 
+        augm = self.augm
+
         while epoch < n_epochs:
             epoch = epoch + 1
             for minibatch_index in xrange(n_train_batches):
 
                 iter = (epoch - 1) * n_train_batches + minibatch_index
 
-                cost_ij = self.train_model(self.augm.augment_batch(self.train_set_x[minibatch_index * batch_size: (minibatch_index + 1) * batch_size], (28, 28), (26, 26), batch_size),
-                                           self.train_set_y[minibatch_index * batch_size: (minibatch_index + 1) * batch_size])
+                cost_ij = self.train_model(augm.augment_batch(train_set_x[minibatch_index * batch_size: (minibatch_index + 1) * batch_size], (28, 28), (26, 26), batch_size),
+                                           train_set_y[minibatch_index * batch_size: (minibatch_index + 1) * batch_size])
 
                 if verbose:
                     print 'training @ iter = ', iter, 'cost = ', cost_ij
@@ -231,8 +221,8 @@ class LearningModel:
                     #            this_train_loss * 100.))
 
                     # compute zero-one loss on validation set
-                    validation_losses = [self.validate_model(self.augm.augment_batch(self.valid_set_x[i * batch_size: (i + 1) * batch_size], (28, 28), (26, 26), batch_size),
-                                                             self.valid_set_y[i * batch_size: (i + 1) * batch_size])
+                    validation_losses = [self.validate_model(self.augm.augment_batch(valid_set_x[i * batch_size: (i + 1) * batch_size], (28, 28), (26, 26), batch_size),
+                                                             valid_set_y[i * batch_size: (i + 1) * batch_size])
                                         for i in xrange(n_valid_batches)]
                     this_validation_loss = numpy.mean(validation_losses)
                     if verbose:
@@ -248,8 +238,8 @@ class LearningModel:
                         best_iter = iter
 
                         # test it on the test set
-                        test_losses = [self.test_model(self.augm.augment_batch(self.test_set_x[i * batch_size: (i + 1) * batch_size], (28, 28), (26, 26), batch_size),
-                                                       self.test_set_y[i * batch_size: (i + 1) * batch_size])
+                        test_losses = [self.test_model(self.augm.augment_batch(test_set_x[i * batch_size: (i + 1) * batch_size], (28, 28), (26, 26), batch_size),
+                                                       test_set_y[i * batch_size: (i + 1) * batch_size])
                                        for i in xrange(n_test_batches)]
                         test_score = numpy.mean(test_losses)
                         if verbose:
