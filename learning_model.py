@@ -23,14 +23,11 @@ class ConvolutionalNeuralNetwork:
 
         def set_layer_parameters(filter_sh=None, pool=None, st=None):
             if filter_sh is not None:
-                filter_shape[0] = filter_sh[0]
-                filter_shape[1] = filter_sh[1]
+                filter_shape[:] = filter_sh
             if pool is not None:
-                poolsize[0] = pool[0]
-                poolsize[1] = pool[1]
+                poolsize[:] = pool
             if st is not None:
-                conv_stride[0] = st[0]
-                conv_stride[1] = st[1]
+                conv_stride[:] = st
 
         def recalculate_after_conv():
             input_shape[0] = (input_shape[0] - filter_shape[0]) / conv_stride[0] + 1
@@ -77,18 +74,16 @@ class ConvolutionalNeuralNetwork:
 
         output_layer = layer2
 
+        # L1 regularization
+        self.L1 = abs(layer0.W).sum() + abs(layer1.W).sum() + abs(layer2.W).sum()
+        # L2 regularization
+        self.L2 = (layer0.W ** 2).sum() + (layer1.W ** 2).sum() + (layer2.W ** 2).sum()
+
         # INTERFACE
         self.params = layer2.params + layer1.params + layer0.params
         self.negative_log_likelihood = output_layer.nll
         self.errors = output_layer.errors
         self.input = input
-
-        # TODO: maybe delegate L1/L2 counting to layers?
-        # L1 regularization
-        self.L1 = (abs(layer0.W).sum() + abs(layer1.W).sum() + abs(layer2.W).sum())
-
-        # L2 regularization
-        self.L2 = ((layer0.W ** 2).sum() + (layer1.W ** 2).sum() + (layer2.W ** 2).sum())
 
         # outputs
         self.predict = output_layer.y_pred
@@ -96,12 +91,12 @@ class ConvolutionalNeuralNetwork:
 
 
 class LearningModel:
-    def __init__(self, rng, nkerns=(20, 50, 10), input_shape=(26, 26), learning_rate=0.01, L1_reg=0.1, L2_reg=0.1):
+    def __init__(self, rng, n_units=(20, 50, 10), input_shape=(26, 26), learning_rate=0.01, L1_reg=0.1, L2_reg=0.1):
         # symbolic variables
         x = T.tensor4('x')  # input
         y = T.ivector('y')  # labels
 
-        classifier = ConvolutionalNeuralNetwork(rng, input=x, n_units=nkerns, input_shape=input_shape)
+        classifier = ConvolutionalNeuralNetwork(rng, input=x, n_units=n_units, input_shape=input_shape)
 
         cost = (classifier.negative_log_likelihood(y) +
                 L1_reg * classifier.L1 +
@@ -140,11 +135,8 @@ class LearningModel:
         test_set_x = proc.augment_batch(test_set_x, random=False)
 
         n_train = train_set_x.shape[0]
-        n_valid = valid_set_x.shape[0]
-        n_test = test_set_x.shape[0]
 
         validation_frequency = 1
-
         best_validation_loss = numpy.inf
         best_epoch = 0
 
@@ -155,10 +147,10 @@ class LearningModel:
             epoch += 1
             for idx_l, idx_p in zip(range(0, n_train, batch_size), range(batch_size, n_train, batch_size)):
                 iter += 1
-                cost_ij = self.train_model(proc.augment_batch(train_set_x[idx_l: idx_p]), train_set_y[idx_l: idx_p])
+                cost = self.train_model(proc.augment_batch(train_set_x[idx_l: idx_p]), train_set_y[idx_l: idx_p])
 
                 if verbose:
-                    print 'training @ iter = ', iter, 'cost = ', cost_ij
+                    print 'training @ iter = ', iter, 'cost = ', cost
 
             if epoch % validation_frequency == 0:
                 train_loss = self.errors(proc.augment_batch(train_set_x, random=False), train_set_y)
