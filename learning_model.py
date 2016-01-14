@@ -161,20 +161,15 @@ class LearningModel:
                     print 'training @ iter = ', iter, 'cost = ', cost_ij
 
             if epoch % validation_frequency == 0:
-                print 'epoch', epoch
-
                 train_loss = self.errors(proc.augment_batch(train_set_x, random=False), train_set_y)
                 if verbose:
-                    print 'train error %f %%' % (train_loss * 100.)
+                    print 'epoch %i: train error %f %%' % (epoch, train_loss * 100.)
 
                 valid_loss = self.errors(valid_set_x, valid_set_y)
-                print 'validation error %f %%' % (valid_loss * 100.)
+                print 'epoch %i: validation error %f %%' % (epoch, valid_loss * 100.)
 
                 if valid_loss < best_validation_loss:
                     best_validation_loss = valid_loss
                     best_epoch = epoch
                     test_loss = self.errors(test_set_x, test_set_y)
                     print '    best model with test error %f %%' % (test_loss * 100.)
-
-    # def predict(self):
-    #     return [self.predict_model(i) for i in range(n_train_batches)]

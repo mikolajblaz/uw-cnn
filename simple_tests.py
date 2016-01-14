@@ -11,13 +11,7 @@ def basic_nn_input():
                           learning_rate=0.01, L1_reg=0.001, L2_reg=0.001)
 
     dataset = dp.load_mnist()
-    for set in dataset:
-        print set[0].shape[0]
     model.train(dataset, n_epochs=10, batch_size=500, image_processing=img_proc, verbose=False)
-
-    # print 'Predicted labels after training:'
-    # pred = model.predict()
-    # print pred
 
 
 if __name__ == '__main__':
