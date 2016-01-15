@@ -7,7 +7,7 @@ from learning_model import LearningModel
 def basic_nn_input():
     rng = numpy.random.RandomState(123456)
 
-    # an object responsible for image processing
+    # an object responsible for image processing and augmentation
     img_proc = dp.ImageProcessing(rng, image_shape=(28, 28), cropped_image_shape=(26, 26))
 
     # model

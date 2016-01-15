@@ -5,6 +5,8 @@ import os
 import numpy as np
 import theano
 
+from scipy import ndimage
+
 
 def load_mnist():
     """ Load MNIST dataset if not present already.
@@ -36,21 +38,18 @@ def load_mnist():
 ###########################################################################
 # augmentation functions
 
-def lighten(image, rng, range=1.1):
-    # TODO
-    # print "Lighten"
-    scale = rng.random_sample() * (range - 1) + 1
-    # return np.clip(image.dot(scale), 0., 1.)
-    return image
+def lightness(image, rng, range=0.1):
+    scale = rng.random_sample() * 2 * range - range + 1
+    return np.clip(image.dot(scale), 0., 1.)
 
 
-def rotate(image, rng):
-    # TODO
-    # print "Rotate"
-    return image
+def rotate(image, rng, range=10):
+    angle = rng.random_sample() * 2 * range - range
+    rot = ndimage.rotate(image[0], int(angle), reshape=False)
+    return np.expand_dims(rot, axis=0)
 
 
-functions = [lighten, rotate]
+functions = [lightness, rotate]
 
 
 class ImageProcessing:
@@ -97,6 +96,7 @@ class ImageProcessing:
         return images[:, :, top: top + new_shape[1], left: left + new_shape[0]]
 
     def augment_image(self, image):
+        """ Randomly choose a function and apply it to the image. """
         rand_fun_idx = self.rng.randint(0, self.length)
         fun = self.fun_list[rand_fun_idx]
         return fun(image, self.rng)
