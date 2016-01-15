@@ -3,7 +3,7 @@ import numpy
 import theano
 import theano.tensor as T
 
-from cnn_layers import Conv, Pool, FC, Dropout, Softmax, relu
+from cnn_layers import Conv, Pool, FC, Dropout, Normalization, Softmax, relu
 
 
 class ConvolutionalNeuralNetwork:
@@ -51,14 +51,16 @@ class ConvolutionalNeuralNetwork:
 
         # Pool
         set_layer_parameters((3, 3), st=(1, 1))
-        pool_player = Pool(
+        pool_layer = Pool(
             input=layer0.output,
             poolsize=poolsize
         )
         recalculate_after_pool()
 
+        norm_layer0 = Normalization(input=pool_layer.output)
+
         # Prepare input for a fully connected layer
-        layer1_input = pool_player.output.flatten(2)
+        layer1_input = norm_layer0.output.flatten(2)
 
         # FC
         layer1 = FC(
@@ -69,13 +71,16 @@ class ConvolutionalNeuralNetwork:
             activation=relu
         )
 
+        # Dropout layer is switched because of negative impact on training process
         dropout_layer = Dropout(
             input=layer1.output,
-            prob=0.2
+            prob=0.
         )
 
+        norm_layer1 = Normalization(input=dropout_layer.output)
+
         # classification
-        layer2 = Softmax(rng=rng, input=dropout_layer.output, n_in=n_units[1], n_out=n_units[2])
+        layer2 = Softmax(rng=rng, input=norm_layer1.output, n_in=n_units[1], n_out=n_units[2])
 
         output_layer = layer2
 
@@ -85,7 +90,7 @@ class ConvolutionalNeuralNetwork:
         self.L2 = (layer0.W ** 2).sum() + (layer1.W ** 2).sum() + (layer2.W ** 2).sum()
 
         # INTERFACE
-        self.params = layer2.params + layer1.params + layer0.params
+        self.params = layer2.params + layer1.params + layer0.params + norm_layer0.params + norm_layer1.params
         self.negative_log_likelihood = output_layer.nll
         self.errors = output_layer.errors
         self.input = input

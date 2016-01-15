@@ -85,9 +85,6 @@ class FC:
 
 class Dropout:
     def __init__(self, input, prob=0.):
-        self.params = []
-        self.input = input
-
         srng = theano.tensor.shared_randomstreams.RandomStreams()
         if prob > 0:
             retain_prob = 1 - prob
@@ -96,6 +93,24 @@ class Dropout:
         else:
             output = input
 
+        self.params = []
+        self.input = input
+        self.output = output
+
+
+class Normalization:
+    def __init__(self, input):
+        self.gamma = theano.shared(1.)
+        self.beta = theano.shared(0.)
+
+        mean = T.mean(input, keepdims=True)
+        var = T.var(input, keepdims=True)
+
+        norm_output = (input - mean) / T.sqrt(var)
+        output = norm_output * self.gamma + self.beta
+
+        self.params = [self.gamma, self.beta]
+        self.input = input
         self.output = output
 
 
