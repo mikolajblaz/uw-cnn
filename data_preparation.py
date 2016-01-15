@@ -38,18 +38,23 @@ def load_mnist():
 ###########################################################################
 # augmentation functions
 
-def lightness(image, rng, range=0.1):
+
+def lightness(image, rng, range=0.05):
     scale = rng.random_sample() * 2 * range - range + 1
     return np.clip(image.dot(scale), 0., 1.)
 
 
-def rotate(image, rng, range=10):
+def rotate(image, rng, range=5):
     angle = rng.random_sample() * 2 * range - range
     rot = ndimage.rotate(image[0], int(angle), reshape=False)
     return np.expand_dims(rot, axis=0)
 
 
-functions = [lightness, rotate]
+def identity(image, rng=None):
+    return image
+
+
+functions = [identity, lightness, rotate]
 
 
 class ImageProcessing:
