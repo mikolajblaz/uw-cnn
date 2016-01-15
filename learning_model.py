@@ -71,7 +71,7 @@ class ConvolutionalNeuralNetwork:
             activation=relu
         )
 
-        # Dropout layer is switched because of negative impact on training process
+        # Dropout layer is switched off (prob=0.) because of negative impact on training process
         dropout_layer = Dropout(
             input=layer1.output,
             prob=0.

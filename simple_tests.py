@@ -18,8 +18,7 @@ def basic_nn_input():
     dataset = dp.load_mnist()
 
     # train model with given parameters (and with high verbosity)
-    # NOTE: setting n_epochs to e.g. 40 will give lower error rate, but it will obviously take more time
-    model.train(dataset, n_epochs=10, batch_size=500, verbose=True)
+    model.train(dataset, n_epochs=6, batch_size=500, verbose=True)
 
     # choose 10 random images from test set
     test_set_x, test_set_y = dataset[2]
