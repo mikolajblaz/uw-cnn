@@ -3,13 +3,13 @@ import numpy
 import theano
 import theano.tensor as T
 
-from cnn_layers import Conv, Pool, FC, Softmax, relu
+from cnn_layers import Conv, Pool, FC, Dropout, Softmax, relu
 
 
 class ConvolutionalNeuralNetwork:
     """
     Network architecture:
-    Conv -> Relu -> Pool -> FC -> Softmax
+    Conv -> Relu -> Pool -> FC -> Dropout -> Softmax
     """
     def __init__(self, rng, input, n_units, input_shape):
         """
@@ -69,8 +69,13 @@ class ConvolutionalNeuralNetwork:
             activation=relu
         )
 
+        dropout_layer = Dropout(
+            input=layer1.output,
+            prob=0.2
+        )
+
         # classification
-        layer2 = Softmax(rng=rng, input=layer1.output, n_in=n_units[1], n_out=n_units[2])
+        layer2 = Softmax(rng=rng, input=dropout_layer.output, n_in=n_units[1], n_out=n_units[2])
 
         output_layer = layer2
 

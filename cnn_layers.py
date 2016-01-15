@@ -4,6 +4,7 @@ import theano
 import theano.tensor as T
 from theano.tensor.signal import downsample
 from theano.tensor.nnet import conv
+from theano.tensor.shared_randomstreams import RandomStreams
 
 
 def relu(x):
@@ -82,6 +83,22 @@ class FC:
         self.output = lin_output if activation is None else activation(lin_output)
 
 
+class Dropout:
+    def __init__(self, input, prob=0.):
+        self.params = []
+        self.input = input
+
+        srng = theano.tensor.shared_randomstreams.RandomStreams()
+        if prob > 0:
+            retain_prob = 1 - prob
+            mask = srng.binomial(input.shape, p=retain_prob)
+            output = input * T.cast(mask, theano.config.floatX)
+        else:
+            output = input
+
+        self.output = output
+
+
 class Conv:
     def __init__(self, rng, input, filter_shape=None, image_shape=None, conv_stride=(1, 1), activation=T.tanh,
                  W=None, b=None):
@@ -127,6 +144,7 @@ class Conv:
 
 class Pool:
     def __init__(self, input, poolsize=(2, 2)):
+        self.params = []
         self.input = input
 
         self.output = downsample.max_pool_2d(
