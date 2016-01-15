@@ -124,7 +124,7 @@ class LearningModel:
         params_values = [print_op(param) for param in params]
         self.display_params = theano.function([], params_values)
 
-    def count_updates(self, params, grads, learning_rate, rmsprop=True, rho=0.9, epsilon=1e-6):
+    def count_updates(self, params, grads, learning_rate, rmsprop=True, rho=0.95, epsilon=1e-6):
         if not rmsprop:
             updates = [(param, param - learning_rate * grad)
                        for param, grad in zip(params, grads)]
@@ -183,7 +183,7 @@ class LearningModel:
             if decay_lr:
                 new_lr = self.decay_lr()
                 if verbose:
-                    print 'new learning rate:', new_lr
+                    print 'epoch %i: new learning rate: %f' % (epoch, new_lr)
 
             if epoch % validation_frequency == 0:
                 train_losses = [self.errors(proc.augment_batch(train_set_x[idx_l: idx_p], random=False),
