@@ -91,7 +91,8 @@ class ConvolutionalNeuralNetwork:
 
 
 class LearningModel:
-    def __init__(self, rng, n_units=(20, 50, 10), input_shape=(26, 26), learning_rate=0.01, L1_reg=0.1, L2_reg=0.1):
+    def __init__(self, rng, n_units=(20, 50, 10), input_shape=(26, 26), learning_rate=0.01, decay_learning_rate=0.9,
+                 L1_reg=0.1, L2_reg=0.1, rmsprop=True):
         # symbolic variables
         x = T.tensor4('x')  # input
         y = T.ivector('y')  # labels
@@ -102,12 +103,16 @@ class LearningModel:
                 L1_reg * classifier.L1 +
                 L2_reg * classifier.L2)
 
+        lr = theano.shared(learning_rate)
+
         params = classifier.params
         grads = T.grad(cost, params)
-        updates = [(param_i, param_i - learning_rate * grad_i)
-                   for param_i, grad_i in zip(params, grads)]
-
+        updates = self.count_updates(params, grads, lr, rmsprop)
         self.train_model = theano.function([x, y], cost, updates=updates)
+
+        # allow decaying the learning rate
+        new_lr = lr * decay_learning_rate
+        self.decay_lr = theano.function([], new_lr, updates=[(lr, new_lr)])
 
         # outputs
         self.errors = theano.function([x, y], classifier.errors(y))
@@ -119,7 +124,21 @@ class LearningModel:
         params_values = [print_op(param) for param in params]
         self.display_params = theano.function([], params_values)
 
-    def train(self, datasets, batch_size, n_epochs, image_processing, verbose=False):
+    def count_updates(self, params, grads, learning_rate, rmsprop=True, rho=0.9, epsilon=1e-6):
+        if not rmsprop:
+            updates = [(param, param - learning_rate * grad)
+                       for param, grad in zip(params, grads)]
+        else:
+            updates = []
+            for param, grad in zip(params, grads):
+                acc = theano.shared(param.get_value() * 0.)
+                acc_new = rho * acc + (1 - rho) * grad ** 2
+                gradient_scaling = T.sqrt(acc_new + epsilon)
+                updates.append((acc, acc_new))
+                updates.append((param, param - learning_rate * grad / gradient_scaling))
+        return updates
+
+    def train(self, datasets, batch_size, n_epochs, image_processing, decay_lr=True, verbose=False):
         """
         :param image_processing: an object allowing random data augmentation and processing
         """
@@ -159,6 +178,12 @@ class LearningModel:
 
                 if verbose:
                     print 'training @ iter = ', iter, 'cost = ', cost
+
+            # for each epoch decay learning rate
+            if decay_lr:
+                new_lr = self.decay_lr()
+                if verbose:
+                    print 'new learning rate:', new_lr
 
             if epoch % validation_frequency == 0:
                 train_losses = [self.errors(proc.augment_batch(train_set_x[idx_l: idx_p], random=False),
