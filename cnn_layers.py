@@ -99,14 +99,14 @@ class Dropout:
 
 
 class Normalization:
-    def __init__(self, input):
+    def __init__(self, input, epsilon=1e-6):
         self.gamma = theano.shared(1.)
         self.beta = theano.shared(0.)
 
         mean = T.mean(input, keepdims=True)
         var = T.var(input, keepdims=True)
 
-        norm_output = (input - mean) / T.sqrt(var)
+        norm_output = (input - mean) / (T.sqrt(var) + epsilon)
         output = norm_output * self.gamma + self.beta
 
         self.params = [self.gamma, self.beta]
