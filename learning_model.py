@@ -91,8 +91,19 @@ class ConvolutionalNeuralNetwork:
 
 
 class LearningModel:
-    def __init__(self, rng, n_units=(20, 50, 10), input_shape=(26, 26), learning_rate=0.01, decay_learning_rate=0.9,
-                 L1_reg=0.1, L2_reg=0.1, rmsprop=True):
+    def __init__(self, rng, image_processor, n_units=(20, 50, 10), input_shape=None,
+                 learning_rate=0.01, decay_learning_rate=0.9, L1_reg=0.1, L2_reg=0.1, rmsprop=True):
+        """
+        :type image_processor: ImageProcessing
+        :param image_processor: an object allowing random data augmentation and processing
+
+        :type n_units: list of ints or tuple of ints
+        :param n_units: for Conv layers it means depth, for FC and softmax - number of hidden units
+        """
+        self.image_processor = image_processor
+        if input_shape is None:
+            input_shape = image_processor.cropped_image_shape
+
         # symbolic variables
         x = T.tensor4('x')  # input
         y = T.ivector('y')  # labels
@@ -115,9 +126,9 @@ class LearningModel:
         self.decay_lr = theano.function([], new_lr, updates=[(lr, new_lr)])
 
         # outputs
-        self.errors = theano.function([x, y], classifier.errors(y))
-        self.predict = theano.function([x], classifier.predict)
-        self.output = theano.function([x], classifier.output)
+        self.model_errors = theano.function([x, y], classifier.errors(y))
+        self.model_predict = theano.function([x], classifier.predict)
+        self.model_output = theano.function([x], classifier.output)
 
         # parameters printing function
         print_op = theano.printing.Print('params')
@@ -138,17 +149,13 @@ class LearningModel:
                 updates.append((param, param - learning_rate * grad / gradient_scaling))
         return updates
 
-    def train(self, datasets, batch_size, n_epochs, image_processing, decay_lr=True, verbose=False):
-        """
-        :param image_processing: an object allowing random data augmentation and processing
-        """
-
+    def train(self, datasets, batch_size, n_epochs, decay_lr=True, verbose=False):
         def get_ranges(top):
             """ Return ranges for batch iteration. """
             return zip(range(0, top, batch_size), range(batch_size, top + batch_size, batch_size))
 
         # TODO: save intermediate results to a file
-        proc = image_processing
+        proc = self.image_processor
 
         train_set_x, train_set_y = datasets[0]
         valid_set_x, valid_set_y = datasets[1]
@@ -165,10 +172,12 @@ class LearningModel:
         validation_frequency = 1
         best_validation_loss = numpy.inf
         best_epoch = 0
-        test_loss = 0.
+        best_test_loss = 0.
 
         epoch = 0
         iter = 0
+
+        print 'Training started, number of epochs: %i' % (n_epochs,)
 
         while epoch < n_epochs:
             epoch += 1
@@ -186,14 +195,14 @@ class LearningModel:
                     print 'epoch %i: new learning rate: %f' % (epoch, new_lr)
 
             if epoch % validation_frequency == 0:
-                train_losses = [self.errors(proc.augment_batch(train_set_x[idx_l: idx_p], random=False),
+                train_losses = [self.model_errors(proc.augment_batch(train_set_x[idx_l: idx_p], random=False),
                                             train_set_y[idx_l: idx_p])
                                 for idx_l, idx_p in get_ranges(n_train)]
                 train_loss = numpy.mean(train_losses)
                 if verbose:
                     print 'epoch %i: train error %f %%' % (epoch, train_loss * 100.)
 
-                valid_losses = [self.errors(valid_set_x[idx_l: idx_p], valid_set_y[idx_l: idx_p])
+                valid_losses = [self.model_errors(valid_set_x[idx_l: idx_p], valid_set_y[idx_l: idx_p])
                                 for idx_l, idx_p in get_ranges(n_valid)]
                 valid_loss = numpy.mean(valid_losses)
                 print 'epoch %i: validation error %f %%' % (epoch, valid_loss * 100.)
@@ -201,9 +210,15 @@ class LearningModel:
                 if valid_loss < best_validation_loss:
                     best_validation_loss = valid_loss
                     best_epoch = epoch
-                    test_losses = [self.errors(test_set_x[idx_l: idx_p], test_set_y[idx_l: idx_p])
+                    test_losses = [self.model_errors(test_set_x[idx_l: idx_p], test_set_y[idx_l: idx_p])
                                    for idx_l, idx_p in get_ranges(n_test)]
-                    test_loss = numpy.mean(test_losses)
-                    print '    best model with test error %f %%' % (test_loss * 100.)
+                    best_test_loss = numpy.mean(test_losses)
+                    print '    best model with test error %f %%' % (best_test_loss * 100.)
 
-        return best_validation_loss, test_loss, epoch
+        print 'Training finished'
+        print 'Test error rate of best model is %f %%: (reached in epoch %i)' % (best_test_loss * 100., epoch)
+
+        return best_validation_loss, best_test_loss, epoch
+
+    def predict(self, data_x):
+        return self.model_predict(self.image_processor.augment_batch(data_x, random=False))
